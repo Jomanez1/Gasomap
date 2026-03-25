@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GasoMap España</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<style>
+:root{--bg:#0a0c0f;--surface:#111418;--surface2:#181c22;--border:#252a33;--accent:#f0c040;--text:#e8eaf0;--muted:#6b7280;--green:#2ecc8a;--red:#e05a2b;--blue:#4a9eff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Space Mono',monospace;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:16px;padding:0 20px;height:52px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;z-index:1000;position:relative}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;color:var(--accent);white-space:nowrap}
+.logo span{color:var(--text)}
+.search-container{position:relative;flex:1;max-width:440px}
+.search-wrap{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:6px;overflow:hidden;transition:border-color .2s}
+.search-wrap:focus-within{border-color:var(--accent)}
+#searchInput{background:transparent;border:none;outline:none;color:var(--text);font-family:'Space Mono',monospace;font-size:.75rem;padding:7px 12px;flex:1}
+#searchInput::placeholder{color:var(--muted)}
+#searchBtn{background:var(--accent);border:none;cursor:pointer;padding:0 12px;height:34px;color:var(--bg);font-family:'Syne',sans-serif;font-weight:700;font-size:.72rem;white-space:nowrap}
+#searchBtn:hover{background:#ffd060}
+#suggestions{position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;z-index:9999;max-height:240px;overflow-y:auto;display:none}
+.sug-item{padding:8px 12px;cursor:pointer;font-size:.72rem;border-bottom:1px solid var(--border);transition:background .15s}
+.sug-item:hover{background:var(--border)}
+.sug-muni{color:var(--text)}
+.sug-prov{color:var(--muted);font-size:.65rem;margin-left:5px}
+.hstats{display:flex;gap:14px;margin-left:auto;flex-shrink:0}
+.stat{display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--muted)}
+.stat strong{color:var(--text)}
+.sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+/* BANNER SUPERIOR */
+#bannerTop{flex-shrink:0;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;padding:0 16px;height:62px;position:relative;overflow:hidden;transition:height .3s,opacity .3s}
+#bannerTop.hidden{height:0;opacity:0;pointer-events:none;border:none}
+.legend-bar{display:flex;align-items:center;gap:16px;padding:5px 20px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;font-size:.65rem;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 7px;border-radius:4px;border:1px solid transparent;transition:all .15s;color:var(--muted)}
+.leg:hover{background:var(--surface2)}
+.leg.active{border-color:var(--accent);color:var(--text)}
+.ldot{width:9px;height:9px;border-radius:50%}
+.llabel{letter-spacing:.04em;text-transform:uppercase;font-size:.62rem}
+.fl{font-family:'Syne',sans-serif;font-weight:600;color:var(--muted);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase}
+.main{flex:1;display:flex;overflow:hidden;position:relative;flex-direction:column}
+.map-area{flex:1;display:flex;overflow:hidden;position:relative}
+#map{flex:1;background:var(--bg)}
+#bannerAd{flex-shrink:0;background:var(--surface2);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:center;padding:0 16px;height:62px;position:relative;overflow:hidden;transition:height .3s,opacity .3s}
+#bannerAd.hidden{height:0;opacity:0;pointer-events:none;border:none}
+.banner-label{font-size:.52rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;position:absolute;top:4px;left:16px}
+.banner-slot{display:flex;align-items:center;justify-content:center;flex:1;height:100%}
+.banner-placeholder{background:linear-gradient(90deg,#1a2030,#1e2535);border:1px dashed var(--border);border-radius:6px;padding:8px 24px;font-size:.65rem;color:var(--muted);text-align:center;min-width:300px}
+.banner-placeholder strong{color:var(--accent);display:block;font-family:'Syne',sans-serif;font-size:.7rem}
+.banner-close{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:3px;padding:2px 6px;font-size:.6rem;font-family:'Space Mono',monospace}
+#panel{width:310px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;transform:translateX(310px);transition:transform .25s ease}
+#panel.open{transform:translateX(0)}
+.ph{padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ptitle{font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;color:var(--accent);margin-bottom:1px}
+.psub{font-size:.62rem;color:var(--muted)}
+.pclose{float:right;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:4px;padding:2px 7px;font-size:.65rem;font-family:'Space Mono',monospace}
+.pclose:hover{color:var(--text);border-color:var(--text)}
+.pb{flex:1;overflow-y:auto;padding:14px 16px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.sname{font-family:'Syne',sans-serif;font-weight:700;font-size:.88rem;margin-bottom:3px;line-height:1.3}
+.saddr{font-size:.65rem;color:var(--muted);margin-bottom:12px;line-height:1.5}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.pcard{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:9px 10px;position:relative;overflow:hidden}
+.pcard::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%}
+.pcard.c95::before{background:#f0c040}.pcard.c98::before{background:#e05a2b}.pcard.cda::before{background:#4a9eff}.pcard.cdp::before{background:#2ecc8a}
+.ptype{font-size:.57rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;font-family:'Syne',sans-serif;font-weight:600}
+.pcard.c95 .ptype{color:#f0c040}.pcard.c98 .ptype{color:#e05a2b}.pcard.cda .ptype{color:#4a9eff}.pcard.cdp .ptype{color:#2ecc8a}
+.pval{font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;line-height:1}
+.punit{font-size:.52rem;color:var(--muted);margin-top:2px}
+.pna{font-size:.67rem;color:var(--muted);font-style:italic}
+.pcmp{font-size:.56rem;margin-top:2px}
+.irow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.65rem}
+.irow:last-child{border-bottom:none}
+.ik{color:var(--muted)}.iv{text-align:right;max-width:58%;font-size:.63rem}
+.ts{font-size:.58rem;color:var(--muted);margin-top:10px;text-align:right}
+#interstitial{position:fixed;inset:0;background:rgba(5,7,10,.96);z-index:9000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .35s}
+#interstitial.show{opacity:1;pointer-events:all}
+.intbox{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(520px,92vw);overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.int-topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.int-adlabel{font-size:.55rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.int-timer{font-family:'Syne',sans-serif;font-weight:700;font-size:.75rem;color:var(--accent)}
+.int-skip{background:none;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:.62rem;padding:3px 10px;border-radius:4px;cursor:pointer;transition:all .2s;opacity:.4;pointer-events:none}
+.int-skip.ready{opacity:1;pointer-events:all;border-color:var(--accent);color:var(--accent)}
+.int-skip.ready:hover{background:var(--accent);color:var(--bg)}
+.int-adzone{min-height:260px;display:flex;align-items:center;justify-content:center;padding:20px}
+.int-placeholder{width:100%;min-height:230px;background:linear-gradient(135deg,#0f1520,#141e2e);border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);text-align:center;cursor:pointer}
+.int-placeholder .big{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;color:var(--text)}
+.int-placeholder .sub{font-size:.65rem}
+/* OVERLAY */
+#overlay{position:absolute;inset:0;background:rgba(10,12,15,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;gap:16px;transition:opacity .4s}
+.ol-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.7rem;color:var(--accent)}
+.ol-bar{width:240px;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.ol-fill{height:100%;background:var(--accent);border-radius:2px;width:0;transition:width .4s ease}
+.ol-txt{font-size:.65rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;text-align:center;max-width:280px;line-height:1.7}
+.ol-cache{font-size:.6rem;color:var(--green);opacity:0;transition:opacity .3s}
+.ol-retry{background:var(--accent);color:var(--bg);font-family:'Syne',sans-serif;font-weight:700;font-size:.75rem;border:none;border-radius:6px;padding:10px 24px;cursor:pointer;display:none;margin-top:4px}
+.ol-retry:hover{background:#ffd060}
+.ol-src{font-size:.58rem;color:var(--muted);opacity:.6;text-align:center}
+/* STATUS */
+#statusBar{padding:3px 20px;background:var(--surface);border-top:1px solid var(--border);font-size:.6rem;color:var(--muted);display:flex;justify-content:space-between;flex-shrink:0}
+#statusBar em{color:var(--accent);font-style:normal}
+/* MAP */
+.leaflet-container{background:#0d1117 !important}
+.leaflet-control-zoom a{background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important}
+.leaflet-control-attribution{background:rgba(10,12,15,.75)!important;color:var(--muted)!important;font-size:.52rem!important}
+.marker-cluster-small,.marker-cluster-medium,.marker-cluster-large{background:rgba(240,192,64,.15)!important}
+.marker-cluster-small div,.marker-cluster-medium div,.marker-cluster-large div{background:rgba(240,192,64,.55)!important;color:#0a0c0f!important;font-family:Syne,sans-serif;font-weight:700;font-size:.7rem}
+@media(max-width:680px){
+  .hstats{display:none}
+  #panel{width:100%;position:absolute;bottom:0;left:0;right:0;top:auto;height:60%;border-left:none;border-top:1px solid var(--border);transform:translateY(100%)}
+  #panel.open{transform:translateY(0)}
+}
+</style>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ADMOB / ADSENSE — Script global
+     Descomenta y reemplaza ca-pub-XXXXXXXXXXXXXXXX con tu Publisher ID
+     Para AdSense web:
+       <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+     Para AdMob (TWA/Bubblewrap) el SDK se gestiona desde el wrapper nativo,
+     pero si usas AdSense en la webview, usa el script de arriba.
+════════════════════════════════════════════════════════════ -->
+<!-- <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script> -->
+
+</head>
+<body>
+
+<!-- INTERSTICIAL -->
+<div id="interstitial">
+  <div class="intbox">
+    <div class="int-topbar">
+      <span class="int-adlabel">Publicidad</span>
+      <span class="int-timer" id="intTimer">Espera 5s</span>
+      <button class="int-skip" id="intSkip" onclick="closeInterstitial()">Saltar &#x2715;</button>
+    </div>
+    <div class="int-adzone">
+
+      <!-- ▼▼▼ PEGA AQUÍ TU CÓDIGO DE ANUNCIO INTERSTICIAL ▼▼▼ -->
+      <!-- ID de bloque de anuncio (intersticial): ADMOB_INTERSTITIAL_ID -->
+      <!-- Ejemplo AdSense interstitial:
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+           data-ad-slot="XXXXXXXXXX"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      -->
+      <div class="int-placeholder" onclick="closeInterstitial()">
+        <div class="big">&#x1F4E2; ANUNCIO</div>
+        <div class="sub">Espacio reservado · Sustituye por tu &lt;ins&gt; de AdMob / AdSense<br>
+        <em style="font-size:.6rem;color:#4a9eff88">ID: ADMOB_INTERSTITIAL_ID</em></div>
+      </div>
+      <!-- ▲▲▲ FIN INTERSTICIAL ▲▲▲ -->
+
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">&#x2B21; Gaso<span>Map</span></div>
+  <div class="search-container">
+    <div class="search-wrap">
+      <input id="searchInput" type="text" placeholder="Buscar municipio...">
+      <button id="searchBtn">BUSCAR</button>
+    </div>
+    <div id="suggestions"></div>
+  </div>
+  <div class="hstats">
+    <div class="stat"><div class="sdot" style="background:#f0c040"></div>G95 <strong id="avg95">—</strong></div>
+    <div class="stat"><div class="sdot" style="background:#e05a2b"></div>G98 <strong id="avg98">—</strong></div>
+    <div class="stat"><div class="sdot" style="background:#4a9eff"></div>D-A <strong id="avgD">—</strong></div>
+    <div class="stat"><div class="sdot" style="background:#2ecc8a"></div>D+ <strong id="avgDP">—</strong></div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════
+     BANNER SUPERIOR
+     Reemplaza el div.banner-placeholder por tu tag <ins> de AdMob/AdSense
+     ID de bloque de anuncio (banner superior): ADMOB_BANNER_TOP_ID
+════════════════════════════════════════════════════ -->
+<div id="bannerTop">
+  <span class="banner-label">Publicidad</span>
+  <div class="banner-slot">
+
+    <!-- ▼▼▼ PEGA AQUÍ TU CÓDIGO DE BANNER SUPERIOR (AdMob / AdSense) ▼▼▼ -->
+    <!-- Ejemplo AdSense:
+    <ins class="adsbygoogle"
+         style="display:inline-block;width:728px;height:60px"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="XXXXXXXXXX"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    -->
+    <!-- Ejemplo AdMob web (TWA/Bubblewrap):
+    <ins class="adsbygoogle"
+         style="display:inline-block;width:320px;height:50px"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="XXXXXXXXXX"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    -->
+    <div class="banner-placeholder">
+      <strong>BANNER SUPERIOR — ESPACIO PUBLICITARIO</strong>
+      Sustituye este bloque por tu &lt;ins&gt; de AdMob / AdSense
+    </div>
+    <!-- ▲▲▲ FIN BANNER SUPERIOR ▲▲▲ -->
+
+  </div>
+  <button class="banner-close" onclick="document.getElementById('bannerTop').classList.add('hidden')">&#x2715;</button>
+</div>
+
+<div class="legend-bar">
+  <span class="fl">Colorear por:</span>
+  <div class="leg active" onclick="setFuel('g95',this)"><div class="ldot" style="background:#f0c040"></div><span class="llabel">Gasolina 95</span></div>
+  <div class="leg" onclick="setFuel('g98',this)"><div class="ldot" style="background:#e05a2b"></div><span class="llabel">Gasolina 98</span></div>
+  <div class="leg" onclick="setFuel('d',this)"><div class="ldot" style="background:#4a9eff"></div><span class="llabel">Gasóleo A</span></div>
+  <div class="leg" onclick="setFuel('dp',this)"><div class="ldot" style="background:#2ecc8a"></div><span class="llabel">Gasóleo Premium</span></div>
+  <span style="margin-left:auto;font-size:.6rem">
+    <span style="color:#2ecc8a">&#x25CF;</span> barato &nbsp;
+    <span style="color:#f0c040">&#x25CF;</span> medio &nbsp;
+    <span style="color:#e05a2b">&#x25CF;</span> caro
+  </span>
+</div>
+
+<div class="main">
+  <div class="map-area">
+    <div id="map"></div>
+    <div id="panel">
+      <div class="ph">
+        <button class="pclose" onclick="closePanel()">&#x2715;</button>
+        <div class="ptitle" id="ptitle">Gasolinera</div>
+        <div class="psub" id="psub"></div>
+      </div>
+      <div class="pb" id="pbody"></div>
+    </div>
+    <div id="overlay">
+      <div class="ol-logo">&#x2B21; GasoMap</div>
+      <div class="ol-bar"><div class="ol-fill" id="olFill"></div></div>
+      <div class="ol-txt" id="olTxt">Iniciando...</div>
+      <div class="ol-cache" id="olCache">&#x26A1; Desde cach&#233; local</div>
+      <div class="ol-src" id="olSrc"></div>
+      <button class="ol-retry" id="olRetry" onclick="retryLoad()">&#x21BA; Reintentar</button>
+    </div>
+  </div>
+  <!-- ═══════════════════════════════════════════════════
+       BANNER INFERIOR
+       ID de bloque de anuncio (banner inferior): ADMOB_BANNER_BOTTOM_ID
+  ════════════════════════════════════════════════════ -->
+  <div id="bannerAd">
+    <span class="banner-label">Publicidad</span>
+    <div class="banner-slot">
+
+      <!-- ▼▼▼ PEGA AQUÍ TU CÓDIGO DE BANNER INFERIOR (AdMob / AdSense) ▼▼▼ -->
+      <!-- Ejemplo AdSense:
+      <ins class="adsbygoogle"
+           style="display:inline-block;width:728px;height:60px"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+           data-ad-slot="XXXXXXXXXX"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      -->
+      <!-- Ejemplo AdMob web (TWA/Bubblewrap):
+      <ins class="adsbygoogle"
+           style="display:inline-block;width:320px;height:50px"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+           data-ad-slot="XXXXXXXXXX"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      -->
+      <div class="banner-placeholder">
+        <strong>BANNER INFERIOR — ESPACIO PUBLICITARIO</strong>
+        Sustituye este bloque por tu &lt;ins&gt; de AdMob / AdSense
+      </div>
+      <!-- ▲▲▲ FIN BANNER INFERIOR ▲▲▲ -->
+
+    </div>
+    <button class="banner-close" onclick="document.getElementById('bannerAd').classList.add('hidden')">&#x2715;</button>
+  </div>
+</div>
+
+<div id="statusBar">
+  <span id="stCount">Cargando...</span>
+  <span id="stTime"></span>
+</div>
+
+<!-- Leaflet cargado ANTES del código JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+// ─── CONFIG ────────────────────────────────────
+var CACHE_KEY = 'gasomap_v5_data';
+var CACHE_TS  = 'gasomap_v5_ts';
+var CACHE_TTL = 4 * 60 * 60 * 1000;
+var BATCH     = 1000;  // marcadores por lote
+var BATCH_MS  = 16;    // ms entre lotes (~1 frame)
+
+var API = 'https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/';
+var SOURCES = [
+  { name:'Directo',       fn: function(){ return fetch(API); } },
+  { name:'corsproxy.io',  fn: function(){ return fetch('https://corsproxy.io/?' + encodeURIComponent(API)); } },
+  { name:'allorigins',    fn: function(){ return fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(API)); } },
+  { name:'thingproxy',    fn: function(){ return fetch('https://thingproxy.freeboard.io/fetch/' + API); } },
+  { name:'codetabs',      fn: function(){ return fetch('https://api.codetabs.com/v1/proxy?quest=' + API); } },
+];
+
+// ─── STATE ─────────────────────────────────────
+var stations = [], currentFuel = 'g95', municipios = [];
+var p95 = [], p98 = [], pD = [], pDP = [];
+var clusterLayer = null;
+
+// ─── MAP ───────────────────────────────────────
+var map = L.map('map', { center:[40.4,-3.7], zoom:6 });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution:'&copy; OpenStreetMap &copy; CARTO',
+  subdomains:'abcd', maxZoom:19
+}).addTo(map);
+
+// ─── INTERSTICIAL ──────────────────────────────
+var intTimer = null;
+function showInterstitial() {
+  var el=document.getElementById('interstitial'), tmr=document.getElementById('intTimer'), skp=document.getElementById('intSkip');
+  el.classList.add('show'); skp.classList.remove('ready');
+  var s=5; tmr.textContent='Espera 5s';
+  intTimer=setInterval(function(){
+    s--; if(s>0){tmr.textContent='Espera '+s+'s';}
+    else{clearInterval(intTimer);tmr.textContent='Listo';skp.classList.add('ready');}
+  },1000);
+}
+function closeInterstitial(){clearInterval(intTimer);document.getElementById('interstitial').classList.remove('show');}
+
+// ─── FETCH ─────────────────────────────────────
+function withTimeout(promise, ms) {
+  var t = new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},ms);});
+  return Promise.race([promise, t]);
+}
+
+async function fetchData() {
+  for (var i=0; i<SOURCES.length; i++) {
+    var src = SOURCES[i];
+    setP(20 + i*10, 'Probando ' + src.name + ' (' + (i+1) + '/' + SOURCES.length + ')...');
+    document.getElementById('olSrc').textContent = '';
+    try {
+      var r = await withTimeout(src.fn(), 13000);
+      if (!r.ok) { console.warn(src.name+' HTTP '+r.status); continue; }
+      var txt = await r.text();
+      if (txt.indexOf('ListaEESSPrecio') < 0) { console.warn(src.name+' sin datos válidos'); continue; }
+      console.log('Fuente OK: '+src.name);
+      return txt;
+    } catch(e) { console.warn(src.name+' -> '+e.message); }
+  }
+  return null;
+}
+
+// ─── INIT ──────────────────────────────────────
+async function init() {
+  document.getElementById('olRetry').style.display='none';
+  setP(5,'Comprobando caché...');
+
+  var cached = tryCache();
+  if (cached) {
+    document.getElementById('olCache').style.opacity='1';
+    setP(60,'Cargando datos guardados...');
+    await delay(50);
+    processData(cached, true);
+    return; // renderMarkers llama a hideOverlay y showInterstitial cuando termina
+  }
+
+  setP(10,'Descargando datos...');
+  var raw = await fetchData();
+  if (!raw) {
+    setP(0,'Sin conexión con ninguna fuente.\nRevisa el wifi/datos e inténtalo de nuevo.');
+    document.getElementById('olRetry').style.display='inline-block';
+    return;
+  }
+
+  setP(75,'Procesando datos...');
+  await delay(30);
+
+  var data;
+  try { data=JSON.parse(raw); }
+  catch(e){ setP(0,'Error al leer los datos.'); document.getElementById('olRetry').style.display='inline-block'; return; }
+
+  var list=data.ListaEESSPrecio||[];
+  if (!list.length){ setP(0,'El servidor no devolvió datos. Inténtalo más tarde.'); document.getElementById('olRetry').style.display='inline-block'; return; }
+
+  try{ localStorage.setItem(CACHE_KEY,JSON.stringify(list)); localStorage.setItem(CACHE_TS,String(Date.now())); }catch(e){}
+
+  setP(85,'Preparando mapa...');
+  await delay(30);
+  processData(list, false);
+  // renderMarkers termina de forma asíncrona → cierra overlay ahí
+}
+
+function retryLoad(){
+  try{localStorage.removeItem(CACHE_KEY);localStorage.removeItem(CACHE_TS);}catch(e){}
+  var ov=document.getElementById('overlay');
+  ov.style.display='flex'; ov.style.opacity='1';
+  document.getElementById('olFill').style.width='0';
+  document.getElementById('olRetry').style.display='none';
+  document.getElementById('olCache').style.opacity='0';
+  init();
+}
+
+function tryCache(){
+  try{
+    var ts=parseInt(localStorage.getItem(CACHE_TS)||'0');
+    if(Date.now()-ts>CACHE_TTL) return null;
+    var r=localStorage.getItem(CACHE_KEY);
+    return r?JSON.parse(r):null;
+  }catch(e){return null;}
+}
+
+// ─── PROCESS ───────────────────────────────────
+function px(v){ if(!v||!v.trim()) return null; var n=parseFloat(v.replace(',','.')); return isNaN(n)?null:n; }
+
+function processData(list, fromCache) {
+  p95=[]; p98=[]; pD=[]; pDP=[]; stations=[];
+  for (var i=0;i<list.length;i++){
+    var s=list[i];
+    var lat=parseFloat((s['Latitud']||'').replace(',','.'));
+    var lng=parseFloat((s['Longitud (WGS84)']||s['Longitud']||'').replace(',','.'));
+    if(!lat||!lng||isNaN(lat)||isNaN(lng)) continue;
+    var g95=px(s['Precio Gasolina 95 E5']),g98=px(s['Precio Gasolina 98 E5']);
+    var d=px(s['Precio Gasoleo A']),dp=px(s['Precio Gasoleo Premium']);
+    if(g95) p95.push(g95); if(g98) p98.push(g98);
+    if(d)   pD.push(d);    if(dp)  pDP.push(dp);
+    stations.push({
+      R:s['Rótulo']||'', E:s['Empresa']||'', D:s['Dirección']||'',
+      M:s['Municipio']||'', P:s['Provincia']||'', CP:s['C.P.']||'',
+      H:s['Horario']||'', TV:s['Tipo Venta']||'',
+      _lat:lat,_lng:lng,_g95:g95,_g98:g98,_d:d,_dp:dp
+    });
+  }
+  updateAvg();
+  buildMunis();
+
+  var tsLabel=fromCache?' · caché '+timeAgo(parseInt(localStorage.getItem(CACHE_TS)||'0')):'· actualizado';
+  document.getElementById('stCount').innerHTML='<em>'+stations.length.toLocaleString('es')+'</em> gasolineras'+tsLabel;
+  document.getElementById('stTime').textContent=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+
+  // Calcular cuantiles una sola vez
+  precomputeQuantiles();
+
+  // Renderizar en lotes asíncronos — NO bloquea el hilo
+  renderMarkersBatch(0);
+}
+
+// ─── CUANTILES PRECALCULADOS ───────────────────
+var q33_95,q67_95,q33_98,q67_98,q33_d,q67_d,q33_dp,q67_dp;
+function quantile(arr,q){var s=arr.slice().sort(function(a,b){return a-b;});return s[Math.floor(s.length*q)]||0;}
+function precomputeQuantiles(){
+  q33_95=quantile(p95,.33); q67_95=quantile(p95,.67);
+  q33_98=quantile(p98,.33); q67_98=quantile(p98,.67);
+  q33_d =quantile(pD, .33); q67_d =quantile(pD, .67);
+  q33_dp=quantile(pDP,.33); q67_dp=quantile(pDP,.67);
+}
+function priceColor(price, fuel){
+  if(!price) return '#3a3f48';
+  var q33,q67;
+  if(fuel==='g95'){q33=q33_95;q67=q67_95;}
+  else if(fuel==='g98'){q33=q33_98;q67=q67_98;}
+  else if(fuel==='d'){q33=q33_d;q67=q67_d;}
+  else{q33=q33_dp;q67=q67_dp;}
+  if(price<=q33) return '#2ecc8a';
+  if(price<=q67) return '#f0c040';
+  return '#e05a2b';
+}
+function getPrice(s,f){return f==='g95'?s._g95:f==='g98'?s._g98:f==='d'?s._d:s._dp;}
+
+// ─── RENDER POR LOTES ─ circleMarker (SVG nativo, mucho más rápido que divIcon) ───
+function renderMarkersBatch(startIdx) {
+  if (startIdx === 0) {
+    if (clusterLayer) map.removeLayer(clusterLayer);
+    clusterLayer = L.markerClusterGroup({
+      chunkedLoading: false,
+      maxClusterRadius: 50,
+      disableClusteringAtZoom: 13,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      iconCreateFunction: function(cluster){
+        var n=cluster.getChildCount(), sz=n>500?44:n>100?38:32;
+        return L.divIcon({
+          html:'<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:rgba(240,192,64,.55);border:2px solid rgba(240,192,64,.35);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.65rem;color:#0a0c0f">'+( n>999?Math.round(n/1000)+'k':n)+'</div>',
+          className:'',iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]
+        });
+      }
+    });
+    map.addLayer(clusterLayer);
+  }
+
+  var end = Math.min(startIdx + BATCH, stations.length);
+  var batch = [];
+
+  for (var i=startIdx; i<end; i++) {
+    var s = stations[i];
+    var col = priceColor(getPrice(s, currentFuel), currentFuel);
+    // circleMarker = SVG nativo de Leaflet, sin HTML string ni nodos DOM extra
+    var m = L.circleMarker([s._lat, s._lng], {
+      radius: 5,
+      color: col,
+      fillColor: col,
+      fillOpacity: 0.9,
+      weight: 1,
+      opacity: 0.5
+    });
+    (function(st){ m.on('click', function(){ showPanel(st); }); })(s);
+    batch.push(m);
+  }
+
+  clusterLayer.addLayers(batch);
+
+  if (end < stations.length) {
+    setP(85 + Math.round((end/stations.length)*14), 'Cargando... ' + end.toLocaleString('es') + '/' + stations.length.toLocaleString('es'));
+    setTimeout(function(){ renderMarkersBatch(end); }, BATCH_MS);
+  } else {
+    setP(100, '');
+    hideOverlay();
+    setTimeout(showInterstitial, 700);
+  }
+}
+
+// renderMarkers normal (para cambio de combustible)
+function renderMarkers() {
+  if (clusterLayer) map.removeLayer(clusterLayer);
+  precomputeQuantiles();
+  renderMarkersBatch(0);
+}
+
+// ─── PANEL ─────────────────────────────────────
+function showPanel(s){
+  document.getElementById('panel').classList.add('open');
+  document.getElementById('ptitle').textContent=s.R||s.E||'Gasolinera';
+  document.getElementById('psub').textContent=s.M+' · '+s.P;
+  function cmp(price,arr){
+    if(!price||!arr.length) return '';
+    var a=0;for(var i=0;i<arr.length;i++)a+=arr[i];a/=arr.length;
+    var d=((price-a)/a*100);
+    return '<div class="pcmp" style="color:'+(d<0?'#2ecc8a':'#e05a2b')+'">'+(d>=0?'+':'')+d.toFixed(1)+'% vs media</div>';
+  }
+  function card(cls,label,price,arr){
+    return '<div class="pcard '+cls+'"><div class="ptype">'+label+'</div>'
+      +(price?'<div class="pval">'+price.toFixed(3)+'</div><div class="punit">&#x20AC;/litro</div>'+cmp(price,arr)
+             :'<div class="pna">No disponible</div>')+'</div>';
+  }
+  document.getElementById('pbody').innerHTML=
+    '<div class="sname">'+(s.R||'—')+'</div>'
+    +'<div class="saddr">'+s.D+'<br>'+s.M+', '+s.P+' '+s.CP+'</div>'
+    +'<div class="pgrid">'+card('c95','Gasolina 95',s._g95,p95)+card('c98','Gasolina 98',s._g98,p98)+card('cda','Gasóleo A',s._d,pD)+card('cdp','Gasóleo Premium',s._dp,pDP)+'</div>'
+    +'<div class="irow"><span class="ik">Horario</span><span class="iv">'+(s.H||'—')+'</span></div>'
+    +'<div class="irow"><span class="ik">Tipo venta</span><span class="iv">'+(s.TV||'—')+'</span></div>'
+    +'<div class="irow"><span class="ik">Empresa</span><span class="iv">'+(s.E||s.R||'—')+'</span></div>'
+    +'<div class="irow"><span class="ik">Coords</span><span class="iv" style="font-size:.58rem">'+s._lat.toFixed(4)+', '+s._lng.toFixed(4)+'</span></div>'
+    +'<div class="ts">Ministerio de Industria · '+new Date().toLocaleDateString('es-ES')+'</div>';
+}
+function closePanel(){document.getElementById('panel').classList.remove('open');}
+
+// ─── FUEL SWITCH ───────────────────────────────
+function setFuel(f,el){
+  currentFuel=f;
+  document.querySelectorAll('.leg').forEach(function(e){e.classList.remove('active');});
+  el.classList.add('active');
+  renderMarkers();
+}
+
+// ─── AVERAGES ──────────────────────────────────
+function avg(a){if(!a.length) return null;var s=0;for(var i=0;i<a.length;i++)s+=a[i];return s/a.length;}
+function fmt(v){return v?v.toFixed(3)+'\u202F\u20AC':'—';}
+function updateAvg(){
+  document.getElementById('avg95').textContent=fmt(avg(p95));
+  document.getElementById('avg98').textContent=fmt(avg(p98));
+  document.getElementById('avgD').textContent =fmt(avg(pD));
+  document.getElementById('avgDP').textContent=fmt(avg(pDP));
+}
+
+// ─── SEARCH ────────────────────────────────────
+function buildMunis(){
+  var m=new Map();
+  for(var i=0;i<stations.length;i++){
+    var k=(stations[i].M||'').toLowerCase().trim();
+    if(k&&!m.has(k)) m.set(k,{muni:stations[i].M,prov:stations[i].P});
+  }
+  municipios=Array.from(m.values()).sort(function(a,b){return a.muni.localeCompare(b.muni,'es');});
+}
+var sInput=document.getElementById('searchInput'), sSug=document.getElementById('suggestions');
+sInput.addEventListener('input',function(){
+  var q=sInput.value.trim().toLowerCase();
+  if(q.length<2){sSug.style.display='none';return;}
+  var res=municipios.filter(function(m){return m.muni.toLowerCase().indexOf(q)===0;}).slice(0,14);
+  if(!res.length){sSug.style.display='none';return;}
+  sSug.innerHTML=res.map(function(m){return '<div class="sug-item" onclick="selectMuni(\''+m.muni.replace(/'/g,"\\'")+'\')">'+'<span class="sug-muni">'+m.muni+'</span><span class="sug-prov">'+m.prov+'</span></div>';}).join('');
+  sSug.style.display='block';
+});
+sInput.addEventListener('keydown',function(e){if(e.key==='Enter')selectMuni(sInput.value.trim());if(e.key==='Escape')sSug.style.display='none';});
+document.getElementById('searchBtn').addEventListener('click',function(){selectMuni(sInput.value.trim());});
+document.addEventListener('click',function(e){if(!e.target.closest('.search-container'))sSug.style.display='none';});
+function selectMuni(name){
+  sSug.style.display='none'; sInput.value=name;
+  var found=stations.filter(function(s){return s.M.toLowerCase()===name.toLowerCase();});
+  if(!found.length){alert('No se encontraron gasolineras en "'+name+'"');return;}
+  var lats=found.map(function(s){return s._lat;}),lngs=found.map(function(s){return s._lng;});
+  map.fitBounds([[Math.min.apply(null,lats)-.02,Math.min.apply(null,lngs)-.02],[Math.max.apply(null,lats)+.02,Math.max.apply(null,lngs)+.02]],{maxZoom:14,animate:true});
+  setTimeout(function(){showPanel(found[0]);},500);
+}
+
+// ─── HELPERS ───────────────────────────────────
+function setP(pct,txt){document.getElementById('olFill').style.width=pct+'%';if(txt!==undefined)document.getElementById('olTxt').textContent=txt;}
+function hideOverlay(){var el=document.getElementById('overlay');el.style.opacity='0';setTimeout(function(){el.style.display='none';},450);}
+function delay(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function timeAgo(ts){var m=Math.round((Date.now()-ts)/60000);return m<60?'hace '+m+' min':'hace '+Math.round(m/60)+'h';}
+
+// ─── GO ────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
