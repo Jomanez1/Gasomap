@@ -611,5 +611,10 @@ function timeAgo(ts){var m=Math.round((Date.now()-ts)/60000);return m<60?'hace '
 // ─── GO ────────────────────────────────────────
 init();
 </script>
+  <script>
+  if (typeof navigator.serviceWorker !== 'undefined') {
+    navigator.serviceWorker.register('sw.js')
+  }
+</script>
 </body>
 </html>
